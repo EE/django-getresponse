@@ -8,4 +8,4 @@ Use it like a standard email backend with an additional feature that allows sett
 
 * `GETRESPONSE_API_TOKEN`
 * `GETRESPONSE_FROM_FIELD_ID`
-* `GETRESPONSE_ENDPOINT` — `https://api.getresponse.com/v3` by default.
+* `GETRESPONSE_ENDPOINT` — `https://api.getresponse.com/v3/` by default.

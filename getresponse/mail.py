@@ -2,16 +2,20 @@ import base64
 from email.mime.base import MIMEBase
 import threading
 from urllib.parse import urljoin
+import logging
 
 from django.conf import settings
 from django.core.mail.backends.base import BaseEmailBackend
 import requests
 
 
+logger = logging.getLogger(__name__)
+
+
 class GetResponseBackend(BaseEmailBackend):
-    def __init__(self):
+    def __init__(self, **kwargs):
         self._session = None
-        self._endpoint = getattr(settings, 'GETRESPONSE_ENDPOINT', 'https://api.getresponse.com/v3')
+        self._endpoint = getattr(settings, 'GETRESPONSE_ENDPOINT', 'https://api.getresponse.com/v3/')
         self._lock = threading.RLock()
 
     def send_messages(self, msgs):
@@ -25,10 +29,17 @@ class GetResponseBackend(BaseEmailBackend):
     def _send_message(self, msg):
         payload = self.message_to_payload(msg)
         url = urljoin(self._endpoint, 'transactional-emails')
-        response = self._session.post(url, payload)
+        response = self._session.post(url, json=payload)
+        try:
+            response.raise_for_status()
+        except requests.RequestException:
+            logger.exception("getresponse api call failed")
+            return False
         return response.status_code == 201
 
     def message_to_payload(self, msg):
+        if len(msg.to) != 1:
+            raise ValueError("Exactly one msg.to address is required.")
         payload = {
             'fromField': {
                 # msg.from_email is ignored.
@@ -39,7 +50,7 @@ class GetResponseBackend(BaseEmailBackend):
                 'plain': msg.body,
             },
             'recipients': {
-                'to': msg.to,
+                'to': {'email': msg.to[0]},
                 'cc': msg.cc,
                 'bcc': msg.bcc,
             },
