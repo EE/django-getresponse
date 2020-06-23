@@ -1,10 +1,13 @@
-import base64
 from email.mime.base import MIMEBase
-import threading
+from pprint import pformat
 from urllib.parse import urljoin
+import base64
+import json
 import logging
+import threading
 
 from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
 from django.core.mail.backends.base import BaseEmailBackend
 import requests
 
@@ -32,8 +35,12 @@ class GetResponseBackend(BaseEmailBackend):
         response = self._session.post(url, json=payload)
         try:
             response.raise_for_status()
-        except requests.RequestException:
-            logger.exception("getresponse api call failed")
+        except requests.RequestException as e:
+            try:
+                reason = pformat(e.response.json())
+            except json.decoder.JSONDecodeError:
+                reason = e.response.content
+            logger.exception(f"GetResponse API call failed:\n{reason}")
             return False
         return response.status_code == 201
 
@@ -56,6 +63,14 @@ class GetResponseBackend(BaseEmailBackend):
             },
             'attachments': self.attachments_to_payload(msg.attachments),
         }
+
+        if isinstance(msg, EmailMultiAlternatives):
+            for alternative_content, mimetype in msg.alternatives:
+                if mimetype == 'text/html' and 'html' not in payload['content']:
+                    payload['content']['html'] = alternative_content
+                else:
+                    raise ValueError("Only single text/html alternative is supported by GetResponse backend.")
+
         if tag_id := getattr(msg, 'tag_id', None):
             payload['tag'] = {
                 'tagId': tag_id,
@@ -73,7 +88,10 @@ class GetResponseBackend(BaseEmailBackend):
         return {
             'fileName': filename,
             'mimeType': mimetype,
-            'content': base64.b64encode(content if isinstance(content, bytes) else content.encode('utf-8')),
+            'content': base64.b64encode(
+                content if isinstance(content, bytes)
+                else content.encode('utf-8')
+            ).decode(),
         }
 
     def open(self):
