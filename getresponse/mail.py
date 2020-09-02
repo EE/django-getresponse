@@ -49,8 +49,7 @@ class GetResponseBackend(BaseEmailBackend):
             raise ValueError("Exactly one msg.to address is required.")
         payload = {
             'fromField': {
-                # msg.from_email is ignored.
-                'fromFieldId': settings.GETRESPONSE_FROM_FIELD_ID,
+                'fromFieldId': self.get_sender(msg.from_email),
             },
             'subject': msg.subject,
             'content': {
@@ -76,6 +75,12 @@ class GetResponseBackend(BaseEmailBackend):
                 'tagId': tag_id,
             }
         return payload
+
+    def get_sender(self, from_email):
+        # if msg.from_email is listed in users settings with FieldId as value, use this address
+        if not settings.GETRESPONSE_ADDRESSES.get(from_email):
+            raise ValueError(f"Given from_email ({from_email}) is not present in GETRESPONSE_ADDRESSES.")
+        return settings.GETRESPONSE_ADDRESSES.get(from_email)
 
     def attachments_to_payload(self, attachments):
         return [self.attachment_to_payload(attachment) for attachment in attachments]
