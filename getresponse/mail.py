@@ -41,7 +41,7 @@ class GetResponseBackend(BaseEmailBackend):
                     count += 1
 
                 transactional_email_ids.append(transactional_email_id)
-        return ExtendedInt(count, attr=transactional_email_ids)
+        return BackendResultInt(count, getresponse_ids=transactional_email_ids)
 
     def _send_message(self, msg):
         payload = self.message_to_payload(msg)
