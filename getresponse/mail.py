@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 class BackendResultInt(int):
-    def __new__(cls, value, attr):
+    def __new__(cls, value, getresponse_ids):
         return super().__new__(cls, value)
 
-    def __init__(self, value, attr):
-        self.attr = attr
+    def __init__(self, value, getresponse_ids):
+        self.getresponse_ids = getresponse_ids
 
 
 class GetResponseBackend(BaseEmailBackend):
@@ -41,7 +41,7 @@ class GetResponseBackend(BaseEmailBackend):
                     count += 1
 
                 transactional_email_ids.append(transactional_email_id)
-        return BackendResultInt(count, attr=transactional_email_ids)
+        return ExtendedInt(count, attr=transactional_email_ids)
 
     def _send_message(self, msg):
         payload = self.message_to_payload(msg)
