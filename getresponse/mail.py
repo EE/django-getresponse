@@ -15,6 +15,14 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+class BackendResultInt(int):
+    def __new__(cls, value, attr):
+        return super().__new__(cls, value)
+
+    def __init__(self, value, attr):
+        self.attr = attr
+
+
 class GetResponseBackend(BaseEmailBackend):
     def __init__(self, **kwargs):
         self._session = None
@@ -22,12 +30,18 @@ class GetResponseBackend(BaseEmailBackend):
         self._lock = threading.RLock()
 
     def send_messages(self, msgs):
+        transactional_email_ids = []
         count = 0
+
         with self._lock, self:  # self is used to obtain connection
             for msg in msgs:
-                if self._send_message(msg):
+                transactional_email_id = self._send_message(msg)
+
+                if transactional_email_id:
                     count += 1
-        return count
+
+                transactional_email_ids.append(transactional_email_id)
+        return BackendResultInt(count, attr=transactional_email_ids)
 
     def _send_message(self, msg):
         payload = self.message_to_payload(msg)
@@ -41,8 +55,8 @@ class GetResponseBackend(BaseEmailBackend):
             except json.decoder.JSONDecodeError:
                 reason = e.response.content
             logger.exception(f"GetResponse API call failed:\n{reason}")
-            return False
-        return response.status_code == 201
+            return None
+        return response.json()["transactionalEmailId"] if response.status_code == 201 else None
 
     def message_to_payload(self, msg):
         if len(msg.to) != 1:
