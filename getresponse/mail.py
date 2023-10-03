@@ -46,7 +46,8 @@ class GetResponseBackend(BaseEmailBackend):
     def _send_message(self, msg):
         payload = self.message_to_payload(msg)
         url = urljoin(self._endpoint, 'transactional-emails')
-        response = self._session.post(url, json=payload)
+        timeout = getattr(settings, 'GETRESPONSE_TIMEOUT', 10)
+        response = self._session.post(url, json=payload, timeout=timeout)
         try:
             response.raise_for_status()
         except requests.RequestException as e:
