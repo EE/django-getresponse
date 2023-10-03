@@ -2,7 +2,11 @@ A Django email backend for GetResponse.
 
 ## Usage
 
-Use it like a standard email backend with an additional feature that allows setting `.tag_id` attribute on an `EmailMessage` instance. The `.from_email` attribute must be present in `GETRESPONSE_ADDRESSES` as key, with FromFiledId as value (see settings below).
+Use it like a standard email backend with an additional feature that allows setting `.tag_id` attribute on an `EmailMessage` instance.
+
+The `.from_email` attribute must be present in `GETRESPONSE_ADDRESSES` as key, with FromFiledId as value (see settings below).
+
+Result returned from sending mail is an int with extra attribute `getresponse_ids`.
 
 ## Settings
 
