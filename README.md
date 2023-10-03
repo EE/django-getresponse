@@ -13,3 +13,4 @@ Result returned from sending mail is an int with extra attribute `getresponse_id
 * `GETRESPONSE_API_TOKEN`
 * `GETRESPONSE_ENDPOINT` — `https://api.getresponse.com/v3/` by default.
 * `GETRESPONSE_ADDRESSES` - dict with addresses; ex. `{'noreply@example.com': 'Tz'}`.
+* `GETRESPONSE_TIMEOUT` - int, optional. Passed to `requests` call.
