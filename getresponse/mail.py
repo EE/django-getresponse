@@ -1,16 +1,15 @@
-from email.mime.base import MIMEBase
-from pprint import pformat
-from urllib.parse import urljoin
 import base64
 import json
 import logging
 import threading
+from email.mime.base import MIMEBase
+from pprint import pformat
+from urllib.parse import urljoin
 
+import requests
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.core.mail.backends.base import BaseEmailBackend
-import requests
-
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,11 @@ class GetResponseBackend(BaseEmailBackend):
         payload = self.message_to_payload(msg)
         url = urljoin(self._endpoint, 'transactional-emails')
         timeout = getattr(settings, 'GETRESPONSE_TIMEOUT', 10)
-        response = self._session.post(url, json=payload, timeout=timeout)
+        try:
+            response = self._session.post(url, json=payload, timeout=timeout)
+        except requests.RequestException as e:
+            logger.exception(f"GetResponse API call failed:\n{e}")
+            return None
         try:
             response.raise_for_status()
         except requests.RequestException as e:
