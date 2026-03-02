@@ -1,12 +1,20 @@
 name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
+    strategy:
+      matrix:
+        django-version: ['4.2', '5.2']
 
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +30,9 @@ jobs:
 
       - name: Install dependencies
         run: poetry install
+
+      - name: Install Django ${{ matrix.django-version }}
+        run: poetry run pip install "django~=${{ matrix.django-version }}.0"
 
       - name: Run flake8
         run: poetry run flake8 .
