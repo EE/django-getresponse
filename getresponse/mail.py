@@ -88,6 +88,15 @@ class GetResponseBackend(BaseEmailBackend):
                 else:
                     raise ValueError("Only single text/html alternative is supported by GetResponse backend.")
 
+        if msg.reply_to:
+            # GetResponse names a reply-to address the way it names a sender, by
+            # the id of a from-field registered on the account, and holds one.
+            if len(msg.reply_to) != 1:
+                raise ValueError("At most one msg.reply_to address is supported by GetResponse backend.")
+            payload['replyTo'] = {
+                'fromFieldId': self.get_sender(msg.reply_to[0]),
+            }
+
         if tag_id := getattr(msg, 'tag_id', None):
             payload['tag'] = {
                 'tagId': tag_id,
@@ -95,9 +104,9 @@ class GetResponseBackend(BaseEmailBackend):
         return payload
 
     def get_sender(self, from_email):
-        # if msg.from_email is listed in users settings with FieldId as value, use this address
+        # if the address is listed in users settings with FieldId as value, use this address
         if not settings.GETRESPONSE_ADDRESSES.get(from_email):
-            raise ValueError(f"Given from_email ({from_email}) is not present in GETRESPONSE_ADDRESSES.")
+            raise ValueError(f"Given address ({from_email}) is not present in GETRESPONSE_ADDRESSES.")
         return settings.GETRESPONSE_ADDRESSES.get(from_email)
 
     def attachments_to_payload(self, attachments):
