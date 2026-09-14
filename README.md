@@ -6,6 +6,8 @@ Use it like a standard email backend with an additional feature that allows sett
 
 The `.from_email` attribute must be present in `GETRESPONSE_ADDRESSES` as key, with FromFiledId as value (see settings below).
 
+The same goes for `.reply_to`: GetResponse names a reply-to address by FromFieldId as well, so an address set there has to be registered on the account and listed in `GETRESPONSE_ADDRESSES` too. At most one is supported, because the API holds one.
+
 Result returned from sending mail is an int with extra attribute `getresponse_ids`.
 
 ## Settings
