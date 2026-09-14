@@ -14,6 +14,38 @@ from django.core.mail.backends.base import BaseEmailBackend
 logger = logging.getLogger(__name__)
 
 
+# One wording for a refusal however it is reported, and a `%s` so that the reason can be
+# logged as an argument rather than formatted into the message it is reported under.
+_REFUSAL = 'GetResponse refused a message: %s'
+
+
+class GetResponseSendError(OSError):
+    """GetResponse did not accept a message for delivery.
+
+    An `OSError` because that is what a caller handling mail generically already
+    catches: `smtplib.SMTPException`, which Django's own SMTP backend raises, and
+    `requests.RequestException`, which this wraps, are both subclasses of it.
+    """
+
+    def __init__(self, reason):
+        super().__init__(_REFUSAL % reason)
+        self.reason = reason
+
+
+def _failure_reason(exc):
+    """What GetResponse said, or what stopped it being asked.
+
+    A rejected request answers with the API's own error document, which names the
+    problem where the status line only numbers it; a transport failure has no response.
+    """
+    if exc.response is None:
+        return str(exc)
+    try:
+        return pformat(exc.response.json())
+    except json.decoder.JSONDecodeError:
+        return exc.response.content
+
+
 class GetResponseSendResult(int):
     def __new__(cls, value, getresponse_ids):
         return super().__new__(cls, value)
@@ -23,7 +55,8 @@ class GetResponseSendResult(int):
 
 
 class GetResponseBackend(BaseEmailBackend):
-    def __init__(self, **kwargs):
+    def __init__(self, fail_silently=False, **kwargs):
+        super().__init__(fail_silently=fail_silently, **kwargs)
         self._session = None
         self._endpoint = getattr(settings, 'GETRESPONSE_ENDPOINT', 'https://api.getresponse.com/v3/')
         self._lock = threading.RLock()
@@ -34,7 +67,14 @@ class GetResponseBackend(BaseEmailBackend):
 
         with self._lock, self:  # self is used to obtain connection
             for msg in msgs:
-                transactional_email_id = self._send_message(msg)
+                try:
+                    transactional_email_id = self._send_message(msg)
+                except GetResponseSendError as e:
+                    if not self.fail_silently:
+                        raise
+                    # Silenced for the caller, so the log is where the reason still goes.
+                    logger.exception(_REFUSAL, e.reason)
+                    transactional_email_id = None
 
                 if transactional_email_id:
                     count += 1
@@ -48,19 +88,14 @@ class GetResponseBackend(BaseEmailBackend):
         timeout = getattr(settings, 'GETRESPONSE_TIMEOUT', 10)
         try:
             response = self._session.post(url, json=payload, timeout=timeout)
-        except requests.RequestException as e:
-            logger.exception(f"GetResponse API call failed:\n{e}")
-            return None
-        try:
             response.raise_for_status()
         except requests.RequestException as e:
-            try:
-                reason = pformat(e.response.json())
-            except json.decoder.JSONDecodeError:
-                reason = e.response.content
-            logger.exception(f"GetResponse API call failed:\n{reason}")
-            return None
-        return response.json()["transactionalEmailId"] if response.status_code == 201 else None
+            raise GetResponseSendError(_failure_reason(e)) from e
+        if response.status_code != 201:
+            # The id lives in the body of a 201; any other success code means the API
+            # accepted the request without creating a message.
+            raise GetResponseSendError(f'the API answered {response.status_code} instead of creating the message')
+        return response.json()["transactionalEmailId"]
 
     def message_to_payload(self, msg):
         if len(msg.to) != 1:

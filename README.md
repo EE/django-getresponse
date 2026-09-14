@@ -10,6 +10,8 @@ The same goes for `.reply_to`: GetResponse names a reply-to address by FromField
 
 Result returned from sending mail is an int with extra attribute `getresponse_ids`.
 
+A message the API does not accept raises `GetResponseSendError`, carrying GetResponse's own error document where the API answered with one. It is an `OSError`, like the `smtplib` exceptions Django's SMTP backend raises, so code that handles either does not need to know which backend it got. Opening the connection with `fail_silently=True` logs the same reason at `ERROR` instead and leaves it out of the send count, as Django's own backends do.
+
 ## Settings
 
 * `GETRESPONSE_API_TOKEN`
